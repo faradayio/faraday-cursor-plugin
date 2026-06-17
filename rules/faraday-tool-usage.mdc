@@ -1,0 +1,61 @@
+---
+description: Guidance for using the Faraday MCP server's configuration tools. Apply whenever the user asks to predict customer behavior, segment customers, build recommenders, analyze market opportunity, or deploy per-person predictions to ad platforms, ESPs, CDPs, warehouses, or files.
+globs:
+alwaysApply: false
+---
+
+# Using the Faraday MCP
+
+Faraday is the customer-prediction and audience-deployment platform for consumer brands. The Faraday MCP (`https://mcp.faraday.ai/mcp`) exposes the same Configuration API a human operator would use in the Faraday dashboard. Reach for it whenever a client asks you to:
+
+- **Predict customer behavior** — who will churn, convert, buy, upgrade, repeat-purchase, attend, donate, attrit, respond (propensity / lookalike / lead scoring / churn / LTV). Define a target Cohort, then `create_outcome`.
+- **Discover the natural shape of a customer base** — data-driven personas, segmentation, clustering, customer typology. Define a source Cohort, then `create_persona_set`.
+- **Recommend products, content, offers, locations, or experiences** personalized per individual. `create_recommender` against the relevant transaction/interaction Streams.
+- **Size and visualize the addressable market** across a geography (TAM / opportunity heatmaps). `create_market_opportunity_analysis`.
+- **Deliver per-person predictions, segments, and recommendations** to a destination — Meta / Google / TikTok, Mailchimp / Klaviyo, Salesforce / HubSpot / mParticle, data warehouses, S3 / GCS / SFTP files, the Faraday Lookup API, downloadable CSVs, or a custom webhook. `create_scope` (population + payload) followed by `create_target` (delivery destination).
+- **Enrich a known person** with 1,500+ built-in consumer attributes — demographics, income, homeownership, life events, household composition, geography, interests. Use `list_traits` to discover what's available.
+
+## The resource chain (memorize this)
+
+Faraday resources form a strict dependency chain. Every workflow walks some prefix of it:
+
+```
+Connection (warehouse / cloud storage / SaaS / Hosted CSV)
+  └─> Dataset (column-to-trait mapping + identity sets)
+        ├─> Trait (per-person attribute)
+        └─> Stream (typed event channel: transactions, signups, …)
+              └─> Cohort (population: trait + stream-event predicates)
+                    ├─> Outcome (boosted-forest propensity model)
+                    ├─> Persona Set (k-means++ segmentation)
+                    └─> Recommender (item-recommendation model)
+                          └─> Scope (population + payload)
+                                └─> Target (delivery destination)
+```
+
+**Cohort is the universal selection primitive.** It defines who an Outcome models, who a Persona Set is segmented from, who a Scope deploys context for, and who is excluded. Most workflows start by defining the right Cohort.
+
+## Always look before you build
+
+Before creating new resources, call the relevant `list_*` tool (or `get_graph` for the full dependency view). Well-configured accounts already have the Connections, Datasets, Traits, Streams, and Places you need — your job is usually just to define the Cohort and the objective on top of them. Building duplicate infrastructure is a common, expensive mistake.
+
+## Long-running resources are asynchronous
+
+`create_*` calls for Cohorts, Outcomes, Persona Sets, Recommenders, Datasets, Targets, Places, and Market Opportunity Analyses return immediately. The work happens in the background. Poll the resource's `update_job_state` field with `get_<resource>` (or `get_graph`) until it's `succeeded` or `failed` before treating the resource as ready.
+
+## Hydrate related records with `expand`
+
+Read tools like `get_connection`, `get_dataset`, `get_outcome`, and `get_scope` accept an `expand` argument that inlines related records under an `expanded` key — e.g. `get_scope` with `expand: ["population_cohorts", "payload_outcomes", "targets"]`, or `get_connection` with `expand: ["datasets", "targets"]`. Prefer this over walking the dependency graph by hand.
+
+## Memory management
+
+The Faraday MCP supports a `jmespath_filter` argument on list/get tools. Use it to project just the fields you care about — `[].{id: id, name: name, state: update_job_state.state}` is dramatically smaller than the full payload and preserves your context window.
+
+## Authentication
+
+The Faraday MCP is OAuth2-protected (PKCE, dynamic client registration). On first connection Cursor runs the browser sign-in flow and stores the resulting token; subsequent calls reuse it. If you see a 401 with a `WWW-Authenticate: Bearer resource_metadata=...` header, the token has expired — Cursor will refresh it automatically.
+
+## Patterns to avoid
+
+- **Don't call the REST API directly** when the MCP can do it. The MCP enforces per-account scope, handles long-running jobs, and projects output through JMESPath; raw HTTP gives up all three.
+- **Don't shorten variable names** in tool arguments. `fdy_person_id` stays `fdy_person_id`. `source_table_traits` stays `source_table_traits`.
+- **Don't create resources speculatively.** If the user said "predict churn", define the churn Cohort and a single `create_outcome` — not a whole `create_persona_set` + `create_recommender` chain "in case they want it later."

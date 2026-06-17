@@ -1,0 +1,7 @@
+{
+  "mcpServers": {
+    "faraday": {
+      "url": "https://mcp.faraday.ai/mcp"
+    }
+  }
+}

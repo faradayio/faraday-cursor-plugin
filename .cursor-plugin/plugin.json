@@ -1,0 +1,30 @@
+{
+  "name": "faraday",
+  "description": "Configure and operate your Faraday account from natural language — ingest data, build audiences, train predictive models, and deliver per-person context to your destinations.",
+  "version": "1.0.0",
+  "author": {
+    "name": "Faraday",
+    "email": "support@faraday.ai"
+  },
+  "homepage": "https://faraday.ai",
+  "repository": "https://github.com/faradayio/faraday-cursor-plugin",
+  "license": "MIT",
+  "keywords": [
+    "faraday",
+    "customer-data",
+    "consumer-data",
+    "audiences",
+    "predictive-modeling",
+    "personalization",
+    "marketing",
+    "crm",
+    "mcp"
+  ],
+  "logo": "assets/logo.svg",
+  "mcpServers": "mcp.json",
+  "rules": "rules",
+  "skills": [
+    "skills/configure-faraday-account",
+    "skills/predict-customer-behavior"
+  ]
+}
